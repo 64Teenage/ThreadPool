@@ -21,7 +21,7 @@ int main(int argc, char ** argv)
 
     if (argc != 3)
     {
-        printf("usage : tcpClient <ip> <path>");
+        printf("usage : tcpClient <ip> <path>\n");
         exit(0);
     }
 
