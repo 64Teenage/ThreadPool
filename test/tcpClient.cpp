@@ -19,16 +19,22 @@ int main(int argc, char ** argv)
     struct sockaddr_in  servaddr;
     char    sendline[MAXLINE], recvline[MAXLINE];
 
+    if (argc != 3)
+    {
+        printf("usage : tcpClient <ip> <path>");
+        exit(0);
+    }
+
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(SERV_PORT);
-    inet_pton(AF_INET, argv[2], &servaddr.sin_addr);
+    inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
 
     connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
-    strcpy(sendline, argv[1]);
+    strcpy(sendline, argv[2]);
     int nSize = strlen(sendline);
     while (nSize>0)
     {
