@@ -6,7 +6,7 @@
 #include <vector>
 
 
-#include "ThreadPool.h"
+#include "threadpool.h"
 
 ThreadWorker::ThreadWorker(ThreadPool * pool, const int id) : m_threadPool(pool), m_tid(id)
 {}
@@ -28,7 +28,7 @@ void        ThreadWorker::operator() ()
 
         threadFunc = m_threadPool->m_taskQueue.front();
         m_threadPool->m_taskQueue.pop();
-        
+
 
         threadFunc();
     }

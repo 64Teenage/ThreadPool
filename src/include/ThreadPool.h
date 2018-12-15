@@ -47,7 +47,7 @@ public:
 
     ThreadPool(const int );
     ~ThreadPool();
-    
+
     template <typename F, typename ...Args>
     auto    submit(F && f, Args && ... args) -> std::future<decltype(f(args...))>
     {
