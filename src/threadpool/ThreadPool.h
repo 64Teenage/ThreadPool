@@ -10,6 +10,8 @@
 #include <functional>
 
 #include "../taskfuture/TaskFuture.h"
+#include "../funccast/funccast.h"
+#include "../taskqueue/TaskQueue.h"
 
 namespace threadpool {
     class ThreadPool {
@@ -20,10 +22,11 @@ namespace threadpool {
         bool    mShutDown;
         bool    mIsInit;
         const int   mMaxQueueSize;
+        int     mThreadSize;
         std::mutex                  mQueueLock;
         std::condition_variable     mQueueCV;
         std::vector<std::thread>    mThreadPool;
-        std::queue<Task>            mTaskQueue;
+        TaskQueue                   mTaskQueue;
 
     public:
         ThreadPool(const ThreadPool &) = delete;
@@ -35,15 +38,42 @@ namespace threadpool {
         void    init();
         void    threadHandle();
 
+        template<typename _Callable, typename... _Args>
+        bool    postJobAndSet(_Callable && callable, std::tuple<_Args...> params, int prior)
+        {
+            using namespace funccast;
+            Cast<_Callable, _Args...>  cast(callable, params);
+            auto func = cast.InvokePackage();
+
+            bool result = submit(func, prior);
+            return result;
+        }
+
     public:
         void    shutDown();
         void    flush();
+        bool    submit(const Task &, int);
 
         ThreadPool(const int );
         ~ThreadPool();
 
+        
+
         template<typename _Callable, typename... _Args>
-        auto    submit(_Callable && callable, _Args && ... args) -> Future<decltype(callable(args ...))> 
+        bool    postJobAndSet(_Callable && callable, _Args && ... args)
+        {
+            using namespace funccast;
+            ParamCast * instance = ParamCast::getInstance();
+            auto funcParams = instance->remove_last(args...);
+            int  prior = instance->getPriority();
+
+            bool result = postJobAndSet(callable, funcParams, prior);
+
+            return result;
+        }
+
+        template<typename _Callable, typename... _Args>
+        auto    postJob(_Callable && callable, _Args && ... args) -> bool
         {
             using ReturnType = decltype(callable(args...));
             std::function<ReturnType()> func = std::bind(std::forward<_Callable>(callable), std::forward<_Args>(args)...);
@@ -55,22 +85,8 @@ namespace threadpool {
                 return ;
             };
             
-            Future<ReturnType>  submitResult;
-            submitResult.mIsSubmit = true;
-            submitResult.mTaskFuture = task_ptr->get_future();
-            {
-                std::unique_lock<std::mutex> lock(mQueueLock);
-                if (mTaskQueue.size() == mMaxQueueSize) 
-                {
-                    submitResult.mIsSubmit = false;
-                    return submitResult;
-                }
-
-                mTaskQueue.push(threadFunc);
-            }
-            mQueueCV.notify_all();
-
-            return submitResult;
+            bool result = submit(threadFunc, 5);
+            return result;
 
 
         }

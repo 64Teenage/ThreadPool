@@ -5,8 +5,13 @@
 #include <queue>
 #include <vector>
 
+#include <iostream>
+#include <ctime>
+#include <cstdio>
 
 #include "ThreadPool.h"
+
+using namespace threadpool;
 
 threadpool::ThreadPool::~ThreadPool()
 {
@@ -15,6 +20,8 @@ threadpool::ThreadPool::~ThreadPool()
 
 threadpool::ThreadPool::ThreadPool(const int queueSize) : mShutDown(false), mIsInit(false), mMaxQueueSize(queueSize)
 {
+    int maxThreads = std::thread::hardware_concurrency();
+    mThreadSize = queueSize < maxThreads ? queueSize : maxThreads;
     init();
 }
 
@@ -22,7 +29,7 @@ void    threadpool::ThreadPool::init()
 {
     if (!mIsInit)
     {
-        for (unsigned int pos = 0; pos < mMaxQueueSize; ++pos)
+        for (unsigned int pos = 0; pos < mThreadSize; ++pos)
         {
             mThreadPool.push_back(std::thread(&ThreadPool::threadHandle, this));
         }
@@ -34,15 +41,18 @@ void    threadpool::ThreadPool::init()
 void    threadpool::ThreadPool::threadHandle()
 {
     Task threadFunc = NULL;
-    while (!mShutDown) 
+    while (true) 
     {
         {
             std::unique_lock<std::mutex> lock(mQueueLock);
-            if (mTaskQueue.empty())
+            while (mTaskQueue.empty())
+            {
+                if (mShutDown)
+                {
+                    return;
+                }
                 mQueueCV.wait(lock);
-
-            if (mTaskQueue.empty())
-                continue;
+            }
 
             threadFunc = mTaskQueue.front();
             mTaskQueue.pop();
@@ -53,10 +63,11 @@ void    threadpool::ThreadPool::threadHandle()
 
 void    threadpool::ThreadPool::shutDown()
 {
-    if (mShutDown)
-        return ;
+    {
+        std::lock_guard<std::mutex> lock(mQueueLock);
+        mShutDown = true;
+    }
 
-    mShutDown = true;
     mQueueCV.notify_all();
 
     for (auto & threads : mThreadPool)
@@ -66,8 +77,22 @@ void    threadpool::ThreadPool::shutDown()
 
 void    threadpool::ThreadPool::flush()
 {
-    std::queue<Task> emptyQueue;
     std::lock_guard<std::mutex> lock(mQueueLock);
-    mTaskQueue.swap(emptyQueue);
+    mTaskQueue.flush();
 
+}
+
+bool    threadpool::ThreadPool::submit(const Task & task, int prior)
+{
+    std::unique_lock<std::mutex>    lock(mQueueLock);
+    if (mTaskQueue.size() == mMaxQueueSize)
+    {
+        return false;
+    }
+    else
+    {
+        mTaskQueue.push(task, prior-1);
+        mQueueCV.notify_all();
+        return true;
+    }
 }
