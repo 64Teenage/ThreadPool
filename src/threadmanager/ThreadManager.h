@@ -7,11 +7,9 @@
 #include <condition_variable>
 
 #include <chrono>
-#include <iostream>
 #include <unordered_map>
 #include <list>
 
-#include "../priorqueue/PriorQueue.h"
 #include "../runtimejob/RuntimeJob.h"
 #include "../threadqueue/ThreadQueue.h"
 
