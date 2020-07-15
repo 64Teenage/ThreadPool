@@ -1,51 +1,47 @@
 #include "ThreadQueue.h"
+#include "../threadlog/threadlog.h"
+#include <cstdint>
 
-void    ThreadQueue::update(RuntimeJob & job, bool flag) {
-    if (flag) {
-        job.onResultUpdate(m_DependencyMap);
+void    ThreadQueue::update(std::shared_ptr<RuntimeJob> job, bool flag) {
+    if(flag) {
+        job->onResultUpdate(m_DependencyMap);
     }
-    if (m_SchedulReady) {
-        dispatch(m_PrepareFreeList, m_PrepareBusyList, m_ReadyList/*, flag, job*/);
-        m_SchedulReady = false;
-    } else {
-        dispatch(m_PrepareBusyList, m_PrepareFreeList, m_ReadyList/*, flag, job*/);
-        m_SchedulReady = true;
-    }
-}
+    
+    DEG_LOG("update start... X %s", (flag ? "true" : "false"));
+    DEG_LOG("update start FreeList size: %ld", m_FreeList.size());
 
-void    ThreadQueue::dispatch(PriorQueue<RuntimeJob> & from, PriorQueue<RuntimeJob> & to, PriorQueue<RuntimeJob> & worker/*, bool flag, RuntimeJob & job*/) {
-    /*if (flag) {
-        std::cout<<"finished: "<<job.getTaskID()<<std::endl;
-    }
-    */
-    while(!from.empty()) {
-        RuntimeJob job = from.front();
-        from.pop();
-        bool status = job.updateDependency(m_DependencyMap);
-        unsigned int prior = job.getPriority();
-        /*if (flag){
-            job.dump();
-        }
-        */
+    uint32_t total = static_cast<uint32_t>(m_FreeList.size());
+    uint32_t cnt = 0;
+    while(cnt++ < total) {
+        auto task = m_FreeList.front();
+        m_FreeList.pop();
+
+        DEG_LOG("job infomation: %s", task->dump().c_str());
+
+        auto prior = task->getPriority();
+        auto status= task->updateDependency(m_DependencyMap);
         if (status) {
-            worker.push(job, prior);
+            m_BusyList.push(task, prior);
+            DEG_LOG("job to busy list: %s", task->dump().c_str());
         } else {
-            to.push(job, prior);
+            m_FreeList.push(task, prior);
+            DEG_LOG("job to free list: %s", task->dump().c_str());
         }
     }
-
-    fflush(stdout);
+    DEG_LOG("update end FreeList size: %ld", m_FreeList.size());
+    DEG_LOG("update end... E");
 }
 
-void    ThreadQueue::push(RuntimeJob job, int prior) {
-    if (m_SchedulReady) {
-        m_PrepareFreeList.push(job, prior);
-    } else {
-        m_PrepareBusyList.push(job, prior);
-    }
-    job.setDependency(m_DependencyMap);
 
+void    ThreadQueue::push(std::shared_ptr<RuntimeJob> job, int prior) {
+    
+    DEG_LOG("start push... X %d", m_FreeList.size());
+    m_FreeList.push(job, prior);
+    DEG_LOG("end push... E %d", m_FreeList.size());
+
+    job->updateDependency(m_DependencyMap);
     update(job, false);
+    DEG_LOG("end push");
 }
 
 void    ThreadQueue::pop() {
@@ -53,39 +49,37 @@ void    ThreadQueue::pop() {
         throw ("no ready task");
     }
 
-    m_ReadyList.pop();
+    DEG_LOG("pop job: %s", m_BusyList.front()->dump().c_str());
+
+    m_BusyList.pop();
 }
 
-RuntimeJob &    ThreadQueue::front() {
+std::shared_ptr<RuntimeJob> ThreadQueue::front() {
     if (!access()) {
         throw ("no ready task");
     }
 
-    return m_ReadyList.front();
+    return m_BusyList.front();
 }
 
 void    ThreadQueue::flush() {
-    while(!m_PrepareBusyList.empty()) {
-        m_PrepareBusyList.pop();
+    while(!m_BusyList.empty()) {
+        m_BusyList.pop();
     }
 
-    while(!m_PrepareFreeList.empty()) {
-        m_PrepareFreeList.pop();
-    }
-
-    while(!m_ReadyList.empty()) {
-        m_ReadyList.pop();
+    while(!m_FreeList.empty()) {
+        m_FreeList.pop();
     }
 }
 
 bool    ThreadQueue::access() {
-    return !m_ReadyList.empty();
+    return !m_BusyList.empty();
 }
 
 bool    ThreadQueue::empty() {
-    return m_ReadyList.empty() && m_PrepareFreeList.empty() && m_PrepareBusyList.empty();
+    return m_FreeList.empty() && m_BusyList.empty();
 }
 
 int     ThreadQueue::size() {
-    return m_ReadyList.size() + m_PrepareFreeList.size() + m_PrepareBusyList.size();
+    return m_FreeList.size() + m_BusyList.size();
 }

@@ -2,6 +2,7 @@
 #define _THREADQUEUE_H_
 
 #include <unordered_map>
+#include <memory>
 
 #include "../priorqueue/PriorQueue.h"
 #include "../runtimejob/RuntimeJob.h"
@@ -14,8 +15,6 @@ public:
     ThreadQueue() {}
     ~ThreadQueue() {}
 
-    void    update(RuntimeJob & job, bool flag);
-
     void    push(RuntimeJob job, int prior);
     void    pop();
     bool    empty();
@@ -23,17 +22,17 @@ public:
     int     size();
     void    flush();
 
-    RuntimeJob &    front();
+    std::shared_ptr<RuntimeJob>    front();
+
+    void    update(std::shared_ptr<RuntimeJob>, bool);
+    void    push(std::shared_ptr<RuntimeJob>, int);
+
 
 
 private:
-    void    dispatch(PriorQueue<RuntimeJob> & from, PriorQueue<RuntimeJob> & to, PriorQueue<RuntimeJob> & worker/*, bool flag, RuntimeJob & job*/);
 
-private:
-    bool                            m_SchedulReady;
-    PriorQueue<RuntimeJob>          m_ReadyList;
-    PriorQueue<RuntimeJob>          m_PrepareFreeList;
-    PriorQueue<RuntimeJob>          m_PrepareBusyList;
+    PriorQueue<std::shared_ptr<RuntimeJob>>     m_BusyList;
+    PriorQueue<std::shared_ptr<RuntimeJob>>     m_FreeList;
     std::unordered_map<int,bool>    m_DependencyMap;
 };
 

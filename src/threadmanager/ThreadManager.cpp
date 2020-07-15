@@ -31,7 +31,7 @@ ThreadManager::~ThreadManager() {
 }
 
 void    ThreadManager::ThreadWorkBody(int threadID) {
-    RuntimeJob jobHandle;
+    std::shared_ptr<RuntimeJob> jobHandle = std::make_shared<RuntimeJob>();
     while (m_Running) {
         {
             std::unique_lock<std::mutex> lock(m_QueueLock);
@@ -43,7 +43,7 @@ void    ThreadManager::ThreadWorkBody(int threadID) {
             m_QueueTask.pop();
         }
 
-        jobHandle.run();
+        jobHandle->run();
 
         onDependencyUpdate(jobHandle);
     }
@@ -54,7 +54,7 @@ void    ThreadManager::flush() {
     m_QueueTask.flush();
 }
 
-void    ThreadManager::submit(const RuntimeJob & jobHandle, const int prior) {
+void    ThreadManager::submit(std::shared_ptr<RuntimeJob> jobHandle, const int prior) {
     std::lock_guard<std::mutex> lock(m_QueueLock);
     m_QueueTask.push(jobHandle, prior);
     m_QueueReady.notify_all();
@@ -65,7 +65,7 @@ ThreadManager *  ThreadManager::getInstance() {
     return &instance;
 }
 
-void    ThreadManager::onDependencyUpdate( RuntimeJob & jobHandle) {
+void    ThreadManager::onDependencyUpdate(std::shared_ptr<RuntimeJob> jobHandle) {
     std::lock_guard<std::mutex> lock(m_QueueLock);
     m_QueueTask.update(jobHandle, true);
     m_QueueReady.notify_all();

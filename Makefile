@@ -8,7 +8,7 @@ SUBDIRS=$(shell ls -l | grep ^d | awk '{if($$9 != "debug") print $$9}')
 #记住当前工程的根目录路径
 ROOT_DIR=$(shell pwd)
 #最终bin文件的名字，可以更改为自己需要的
-BIN=cping
+BIN=demo
 #目标文件所在的目录
 OBJS_DIR=debug/obj
 #bin文件所在的目录

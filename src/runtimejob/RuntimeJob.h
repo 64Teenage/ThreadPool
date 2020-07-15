@@ -8,6 +8,7 @@
 #include <thread>
 #include <ctime>
 #include <unordered_map>
+#include <string>
 
 #include <iostream>
 
@@ -85,12 +86,17 @@ namespace threadmanager {
             //--mapGraph[m_TaskID];
         }
 
-        void    dump() {
-            std::cout<<m_TaskID<<": ";
-            for (auto it = m_Dependency.begin(); it != m_Dependency.end(); ++it) {
-                std::cout<<*it<<" ";
+        std::string     dump() {
+            std::string res;
+            res += "Task id: " + std::to_string(m_TaskID);
+            res += ", Priority: " + std::to_string(m_Prority);
+            if(!m_Dependency.empty()) {
+                res += ", Depend on:";
             }
-            std::cout<<std::endl;
+            for (auto it = m_Dependency.begin(); it != m_Dependency.end(); ++it) {
+                res += " " + std::to_string(*it);
+            }
+            return res;
         }
     };
 

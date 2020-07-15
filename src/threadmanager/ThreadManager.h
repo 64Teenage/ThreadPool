@@ -37,8 +37,8 @@ private:
     void    ThreadWorkBody(int threadid);
 
     void    flush();
-    void    submit(const RuntimeJob & jobHandle, const int prior);
-    void    onDependencyUpdate(RuntimeJob & jobHandle);
+    void    submit(std::shared_ptr<RuntimeJob> jobHandle, const int prior);
+    void    onDependencyUpdate(std::shared_ptr<RuntimeJob> jobHandle);
     void    dispatch(PriorQueue<RuntimeJob> & from, PriorQueue<RuntimeJob> & to, PriorQueue<RuntimeJob> & worker);
     
 
@@ -49,7 +49,7 @@ public:
     template<typename F, typename... Args>
     auto    PostJob(int taskid, int prior, std::list<int> dependency, F && f, Args &&... args) -> std::future<decltype(f(args...))>{
         using namespace threadmanager;
-        RuntimeJob jobHandle(taskid, prior, dependency);
+        std::shared_ptr<RuntimeJob> jobHandle = std::make_shared<RuntimeJob>(taskid, prior, dependency);
         using ReturnType = decltype(f(args...));
         std::function<ReturnType()> func = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
 
@@ -59,7 +59,7 @@ public:
             return;
         };
 
-        jobHandle.setTaskHandle(threadFunc);
+        jobHandle->setTaskHandle(threadFunc);
 
         submit(jobHandle, prior);
 
