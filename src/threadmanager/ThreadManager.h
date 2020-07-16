@@ -68,10 +68,6 @@ public:
     }
 
 private:
-    bool m_Running = false;
-    bool m_Quit = false;
-    std::mutex                  m_QueueLock;
-    std::condition_variable     m_QueueReady;
     std::vector<std::thread>    m_ThreadCore;
     ThreadQueue                 m_QueueTask;
 };

@@ -4,6 +4,7 @@
 
 void    ThreadQueue::update(std::shared_ptr<RuntimeJob> job, bool flag) {
     if(flag) {
+        m_QueueLock.lock();
         job->onResultUpdate(m_DependencyMap);
     }
     
@@ -30,11 +31,16 @@ void    ThreadQueue::update(std::shared_ptr<RuntimeJob> job, bool flag) {
     }
     DEG_LOG("update end FreeList size: %ld", m_FreeList.size());
     DEG_LOG("update end... E");
+
+    m_QueueReady.notify_one();
+    if(flag) {
+        m_QueueLock.unlock();
+    }
 }
 
 
 void    ThreadQueue::push(std::shared_ptr<RuntimeJob> job, int prior) {
-    
+    std::lock_guard<std::mutex> lock(m_QueueLock);
     DEG_LOG("start push... X %d", m_FreeList.size());
     m_FreeList.push(job, prior);
     DEG_LOG("end push... E %d", m_FreeList.size());
@@ -44,25 +50,22 @@ void    ThreadQueue::push(std::shared_ptr<RuntimeJob> job, int prior) {
     DEG_LOG("end push");
 }
 
-void    ThreadQueue::pop() {
-    if (!access()) {
-        throw ("no ready task");
+
+std::shared_ptr<RuntimeJob> ThreadQueue::wait_and_pop() {
+    std::unique_lock<std::mutex> lock(m_QueueLock);
+    m_QueueReady.wait(lock, [&](){return !m_BusyList.empty() || !m_ActiveStatus;});
+    if(!m_ActiveStatus) {
+        return nullptr;
     }
 
-    DEG_LOG("pop job: %s", m_BusyList.front()->dump().c_str());
-
+    auto job = m_BusyList.front();
     m_BusyList.pop();
-}
 
-std::shared_ptr<RuntimeJob> ThreadQueue::front() {
-    if (!access()) {
-        throw ("no ready task");
-    }
-
-    return m_BusyList.front();
+    return job;
 }
 
 void    ThreadQueue::flush() {
+    std::lock_guard<std::mutex> lock(m_QueueLock);
     while(!m_BusyList.empty()) {
         m_BusyList.pop();
     }
@@ -73,13 +76,25 @@ void    ThreadQueue::flush() {
 }
 
 bool    ThreadQueue::access() {
-    return !m_BusyList.empty();
+    std::lock_guard<std::mutex> lock(m_QueueLock);
+    return !m_BusyList.empty() || !m_ActiveStatus;
+}
+
+bool    ThreadQueue::access(bool active) {
+    {
+        std::lock_guard<std::mutex> lock(m_QueueLock);
+        m_ActiveStatus = active;
+        m_QueueReady.notify_all();
+    }
+    return active;
 }
 
 bool    ThreadQueue::empty() {
+    std::lock_guard<std::mutex> lock(m_QueueLock);
     return m_FreeList.empty() && m_BusyList.empty();
 }
 
 int     ThreadQueue::size() {
+    std::lock_guard<std::mutex> lock(m_QueueLock);
     return m_FreeList.size() + m_BusyList.size();
 }

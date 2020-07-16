@@ -5,7 +5,8 @@
 
 #include "ThreadManager.h"
 
-ThreadManager::ThreadManager(int threads) : m_Running(true), m_Quit(false) {
+ThreadManager::ThreadManager(int threads) {
+    m_QueueTask.access(true);
     int maxHardThread = std::thread::hardware_concurrency();
     threads = (threads > maxHardThread ? maxHardThread : maxHardThread * 3 / 4);
     for (int pos = 0; pos < threads; ++pos) {
@@ -14,12 +15,7 @@ ThreadManager::ThreadManager(int threads) : m_Running(true), m_Quit(false) {
 }
 
 ThreadManager::~ThreadManager() {
-    {
-        std::lock_guard<std::mutex> lock(m_QueueLock);
-        m_Running = false;
-        m_Quit = true;
-        m_QueueReady.notify_all();
-    }
+    m_QueueTask.access(false);
 
     for (auto & worker : m_ThreadCore) {
         if (worker.joinable()) {
@@ -32,16 +28,16 @@ ThreadManager::~ThreadManager() {
 
 void    ThreadManager::ThreadWorkBody(int threadID) {
     std::shared_ptr<RuntimeJob> jobHandle = std::make_shared<RuntimeJob>();
-    while (m_Running) {
-        {
-            std::unique_lock<std::mutex> lock(m_QueueLock);
-            m_QueueReady.wait(lock, [&](){return m_QueueTask.access() || m_Quit;});
-            if (m_Quit) {
-                return ;
-            }
-            jobHandle = m_QueueTask.front();
-            m_QueueTask.pop();
+    while (true) {
+        jobHandle = m_QueueTask.wait_and_pop();
+        if(!m_QueueTask.active()) {
+            return ;
         }
+        
+        if(jobHandle == nullptr) {
+            continue ;
+        }
+
 
         jobHandle->run();
 
@@ -50,14 +46,11 @@ void    ThreadManager::ThreadWorkBody(int threadID) {
 }
 
 void    ThreadManager::flush() {
-    std::lock_guard<std::mutex> lock(m_QueueLock);
     m_QueueTask.flush();
 }
 
 void    ThreadManager::submit(std::shared_ptr<RuntimeJob> jobHandle, const int prior) {
-    std::lock_guard<std::mutex> lock(m_QueueLock);
     m_QueueTask.push(jobHandle, prior);
-    m_QueueReady.notify_all();
 }
 
 ThreadManager *  ThreadManager::getInstance() {
@@ -66,7 +59,5 @@ ThreadManager *  ThreadManager::getInstance() {
 }
 
 void    ThreadManager::onDependencyUpdate(std::shared_ptr<RuntimeJob> jobHandle) {
-    std::lock_guard<std::mutex> lock(m_QueueLock);
     m_QueueTask.update(jobHandle, true);
-    m_QueueReady.notify_all();
 }
