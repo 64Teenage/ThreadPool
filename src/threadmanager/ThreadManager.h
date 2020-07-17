@@ -39,7 +39,6 @@ private:
     void    flush();
     void    submit(std::shared_ptr<RuntimeJob> jobHandle, const int prior);
     void    onDependencyUpdate(std::shared_ptr<RuntimeJob> jobHandle);
-    void    dispatch(PriorQueue<RuntimeJob> & from, PriorQueue<RuntimeJob> & to, PriorQueue<RuntimeJob> & worker);
     
 
 

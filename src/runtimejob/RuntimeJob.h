@@ -10,8 +10,6 @@
 #include <unordered_map>
 #include <string>
 
-#include <iostream>
-
 namespace threadmanager {
     template<class T>
     struct Future {

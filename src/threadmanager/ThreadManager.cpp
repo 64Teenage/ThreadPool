@@ -1,6 +1,5 @@
 #include <thread>
 #include <mutex>
-#include <iostream>
 #include <condition_variable>
 
 #include "ThreadManager.h"
@@ -27,7 +26,7 @@ ThreadManager::~ThreadManager() {
 }
 
 void    ThreadManager::ThreadWorkBody(int threadID) {
-    std::shared_ptr<RuntimeJob> jobHandle = std::make_shared<RuntimeJob>();
+    auto jobHandle = std::make_shared<RuntimeJob>();
     while (true) {
         jobHandle = m_QueueTask.wait_and_pop();
         if(!m_QueueTask.active()) {

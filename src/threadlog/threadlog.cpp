@@ -50,7 +50,7 @@ void    log_dbg_print(const char * pFuncName, const char * pFormat, ...)
     pid_t tid = syscall(SYS_gettid);
 
     char strtime[MAXLOGLEN];
-    snprintf(strtime, sizeof(strtime), "%4d.%2d.%2d %2d:%2d%2d:%06ld", (1900 + pNow->tm_year), (1 + pNow->tm_mon), pNow->tm_mday, pNow->tm_hour, pNow->tm_min, pNow->tm_sec, tmv.tv_usec);
+    snprintf(strtime, sizeof(strtime), "%4d-%02d-%2d %02d:%02d:%02d.%06ld", (1900 + pNow->tm_year), (1 + pNow->tm_mon), pNow->tm_mday, pNow->tm_hour, pNow->tm_min, pNow->tm_sec, tmv.tv_usec);
 
     char strLine[MAXLOGLEN];
     snprintf(strLine, sizeof(strLine), "%s %d %d %s: %s\n", strtime, pid, tid, pFuncName, str_buffer);
